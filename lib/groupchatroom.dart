@@ -1,31 +1,42 @@
+import 'dart:io';
+
+import 'package:chatapp/fullimage.dart';
 import 'package:chatapp/groupinfo.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
+//import 'package:flutter/rendering.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:uuid/uuid.dart';
 
 class GroupChatRoom extends StatefulWidget {
   final String groupChatId;
-  const GroupChatRoom({required this.groupChatId, super.key});
+  final String groupName;
+  const GroupChatRoom(
+      {required this.groupName, required this.groupChatId, super.key});
 
   @override
   State<GroupChatRoom> createState() => _GroupChatRoomState();
 }
 
 class _GroupChatRoomState extends State<GroupChatRoom> {
-  String currentUserName = "User1";
   final TextEditingController _messageController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  File? imageFile;
   @override
   Widget build(BuildContext context) {
     return Scaffold(
         appBar: AppBar(
-          title: const Text("Group Name"),
+          title: Text(widget.groupName),
           actions: [
             IconButton(
                 onPressed: () {
                   Navigator.of(context).push(MaterialPageRoute(
-                      builder: (context) => const GroupInfo()));
+                      builder: (context) => GroupInfo(
+                            groupChatId: widget.groupChatId,
+                            name: widget.groupName,
+                          )));
                 },
                 icon: const Icon(Icons.more_vert))
           ],
@@ -73,7 +84,9 @@ class _GroupChatRoomState extends State<GroupChatRoom> {
                       },
                       decoration: InputDecoration(
                         suffixIcon: IconButton(
-                          onPressed: () {},
+                          onPressed: () {
+                            pickImage();
+                          },
                           icon: const Icon(Icons.photo),
                         ),
                         hintText: "Message",
@@ -92,6 +105,54 @@ class _GroupChatRoomState extends State<GroupChatRoom> {
                 ],
               )),
         ));
+  }
+
+  pickImage() async {
+    ImagePicker imagePicker = ImagePicker();
+    final xfile = await imagePicker.pickImage(source: ImageSource.gallery);
+    if (xfile != null) {
+      imageFile = File(xfile.path);
+
+      upLoadImage();
+    }
+  }
+
+  upLoadImage() async {
+    String file = const Uuid().v1();
+    int status = 1;
+    final currentUser = FirebaseAuth.instance.currentUser!.displayName;
+    await FirebaseFirestore.instance
+        .collection("groups")
+        .doc(widget.groupChatId)
+        .collection("chats")
+        .doc(file)
+        .set({
+      "sendby": currentUser,
+      "message": "",
+      "type": "img",
+      "time": FieldValue.serverTimestamp(),
+    });
+    Reference ref =
+        FirebaseStorage.instance.ref().child("images").child("$file.jpg");
+    await ref.putFile(imageFile!).catchError((error) async {
+      status = 0;
+      return await FirebaseFirestore.instance
+          .collection("groups")
+          .doc(widget.groupChatId)
+          .collection("chats")
+          .doc(file)
+          .delete();
+    });
+
+    if (status == 1) {
+      String imageUrl = await ref.getDownloadURL();
+      await FirebaseFirestore.instance
+          .collection("groups")
+          .doc(widget.groupChatId)
+          .collection("chats")
+          .doc(file)
+          .update({"message": imageUrl});
+    }
   }
 
   onSendMessage() async {
@@ -154,18 +215,37 @@ class _GroupChatRoomState extends State<GroupChatRoom> {
                     FirebaseAuth.instance.currentUser!.displayName
                 ? Alignment.centerRight
                 : Alignment.centerLeft,
-            child: Container(
-              //width: 40.0,
-              // height: 50.0,
-
-              decoration: const BoxDecoration(
-                  color: Colors.blueAccent,
-                  borderRadius: BorderRadius.all(Radius.circular(8.0))),
-              margin:
-                  const EdgeInsets.symmetric(vertical: 5.0, horizontal: 5.0),
-              padding:
-                  const EdgeInsets.symmetric(vertical: 16.0, horizontal: 5.0),
-              child: Image.network(chatmap["message"]),
+            //decoration: const BoxDecoration(color: Colors.transparent),
+            width: 150.0,
+            height: 150.0,
+            child: InkWell(
+              onTap: () {
+                if (chatmap["message"] != "") {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) {
+                    return FullImage(imageUrl: chatmap["message"]);
+                  }));
+                }
+              },
+              child: Container(
+                width: 150.0,
+                height: 150.0,
+                decoration: BoxDecoration(
+                  color: Colors.transparent,
+                  border: Border.all(//color: Colors.transparent
+                      ),
+                ),
+                // borderRadius: const BorderRadius.all(Radius.circular(8.0))),
+                margin:
+                    const EdgeInsets.symmetric(vertical: 5.0, horizontal: 5.0),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 5.0, horizontal: 5.0),
+                child: chatmap["message"] != ""
+                    ? Image.network(
+                        chatmap["message"],
+                        fit: BoxFit.cover,
+                      )
+                    : const CircularProgressIndicator(),
+              ),
             ),
           );
         } else if (chatmap["type"] == "notify") {

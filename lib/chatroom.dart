@@ -141,13 +141,13 @@ class _ChatRoomState extends State<ChatRoom> {
         FirebaseStorage.instance.ref().child("images").child("$fileName.jpg");
     TaskSnapshot uploadTask =
         await ref.putFile(imageFile!).catchError((error) async {
-      await firebaseFirestore
+      status = 0;
+      return await firebaseFirestore
           .collection("chatroom")
           .doc(widget.chatRoomId)
           .collection("chats")
           .doc(fileName)
           .delete();
-      status = 0;
     });
     if (status == 1) {
       String imageUrl = await uploadTask.ref.getDownloadURL();

@@ -63,6 +63,7 @@ class _GroupChatState extends State<GroupChat> {
                   onTap: () {
                     Navigator.of(context).push(MaterialPageRoute(
                         builder: (context) => GroupChatRoom(
+                              groupName: groupList[index]["name"],
                               groupChatId: groupList[index]["id"],
                             )));
                   },
