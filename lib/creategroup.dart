@@ -45,6 +45,7 @@ class _CreateGroupState extends State<CreateGroup> {
         "message":
             "${FirebaseAuth.instance.currentUser!.displayName} created this group",
         "type": "notify",
+        //"time": FieldValue.serverTimestamp(),
       });
     }
     setState(() {

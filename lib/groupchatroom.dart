@@ -31,30 +31,29 @@ class _GroupChatRoomState extends State<GroupChatRoom> {
           ],
         ),
         body: SingleChildScrollView(
-          child: Column(
-            children: [
-              StreamBuilder(
-                  stream: FirebaseFirestore.instance
-                      .collection("groups")
-                      .doc(widget.groupChatId)
-                      .collection("chats")
-                      .snapshots(),
-                  builder: (context, snapshot) {
-                    return ListView.builder(
-                      itemCount: snapshot.data!.docs.length,
-                      itemBuilder: (context, index) {
-                        if (snapshot.hasData) {
-                          Map<String, dynamic> map =
-                              snapshot.data!.docs[index].data();
-                          return messageTile(map);
-                        } else {
-                          return const SizedBox();
-                        }
-                      },
-                    );
-                  })
-            ],
-          ),
+          child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection("groups")
+                  .doc(widget.groupChatId)
+                  .collection("chats")
+                  .orderBy("time", descending: false)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                return ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: snapshot.data!.docs.length,
+                  itemBuilder: (context, index) {
+                    if (snapshot.hasData) {
+                      Map<String, dynamic> map = snapshot.data!.docs[index]
+                          .data() as Map<String, dynamic>;
+                      return messageTile(map);
+                    } else {
+                      return const SizedBox();
+                    }
+                  },
+                );
+              }),
         ),
         bottomNavigationBar: Padding(
           padding: const EdgeInsets.all(8.0),
@@ -96,7 +95,7 @@ class _GroupChatRoomState extends State<GroupChatRoom> {
   }
 
   onSendMessage() async {
-    String currentUser = FirebaseAuth.instance.currentUser!.uid;
+    final currentUser = FirebaseAuth.instance.currentUser!.displayName;
     Map<String, dynamic> messageMap = {
       "sendby": currentUser,
       "message": _messageController.text,
